@@ -3,6 +3,7 @@
 // plus a deterministic synthetic drift layer for intra-refresh motion.
 // The drift layer is MOCK and is labeled as such end-to-end.
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ import { getDb } from "./queries/connection";
 import { watchlistItems } from "@db/schema";
 import type { MarketSnapshot, MarketStatus } from "../contracts/market";
 
-const SEED_PATH = path.resolve(process.cwd(), "api/data/seed-market.json");
+const SEED_PATH = path.resolve(process.cwd(), "api/data/seed-market.json.b64");
 
 let seedCache: MarketSnapshot | null = null;
 let livePatch: Record<string, number> | null = null; // key -> live last price
@@ -19,8 +20,9 @@ let liveAt = 0;
 
 function loadSeed(): MarketSnapshot {
   if (!seedCache) {
-    const raw = readFileSync(SEED_PATH, "utf8");
-    seedCache = JSON.parse(raw) as MarketSnapshot;
+    const b64 = readFileSync(SEED_PATH, "utf8").trim();
+    const buf = Buffer.from(b64, "base64");
+    seedCache = JSON.parse(gunzipSync(buf).toString("utf8")) as MarketSnapshot;
   }
   return seedCache;
 }
